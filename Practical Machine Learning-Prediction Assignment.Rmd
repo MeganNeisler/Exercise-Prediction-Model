@@ -1,7 +1,7 @@
 ---
 title: "Practical Machine Learning_Prediction Assignment"
 author: "MNeisler"
-date: "October 3, 2016"
+date: "October 10, 2016"
 output: html_document
 ---
 
@@ -10,15 +10,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Synopsis
-The goal of this project is to predict the manner in which participants conducted an exercise using data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. 
+The goal of this project is to predict the manner in which participants conducted an exercise, Unilateral Dumbell Biceps Curl, using data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. 
 
-We are using data from a weight lifting excercises study in which participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways: "exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E)."  
+We are using data from a weight lifting excercises study in which participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways: "exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E) (Velloso et al. 2013)."   Read more: http://groupware.les.inf.puc-rio.br/har#ixzz4M3W3G2zV
 
-Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
-
-Read more: http://groupware.les.inf.puc-rio.br/har#ixzz4M3W3G2zV
-
-We aim to develop a model that can predict the appropriate activity quality (class A-E) (the “classe” variable in the training set) by processing data gathered from the accelerometers.
+The goal of this assigment is to develop a model that can predict the appropriate activity quality (class A-E) (the “classe” variable in the training set) by processing data gathered from the accelerometers.
 
 This report describes the following:
 
@@ -27,35 +23,124 @@ This report describes the following:
 * Expected out of sample error
 * Rationale for selections
 
-The model will be be run on the test data to predict the outcome of 20 different test cases.
+The selected model will be run on the test data to predict the outcome of 20 different test cases.
 
 ## Getting and Loading the Data
 
-## Data Cleaning/Features
+We first load the required libraries need to run our analysis.
 
-## Model Selection
-
-## Cross Validation
-
-## Sample Error
-
-## Rationale/Conclusion
-
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r results = "hide"}
+library(caret)
+library(randomForest)
+library(splines)
+library(rpart)
+library(rattle)
+library(rpart.plot)
 ```
 
-## Including Plots
+We then load both the training and test data sets. The testing and training data can be found at the following urls:
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+# We import the data treating empty values as NA.
+training <- read.csv(url(trainUrl), na.strings=c("", "NA"), header= TRUE)
+testing <- read.csv(url(testUrl), na.strings=c("", "NA"), header = TRUE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Data Preparation
+
+There are a total of 160 variables in the data set.  We can reduce the size of the training set by removing all near zero variance variables or variables that contain a large number of NAs to create a new clean training data set.
+
+```{r}
+naSUM <- sapply(training, function(n) sum(length(which(is.na(n)))))
+nearVar <- nearZeroVar(training, saveMetrics = TRUE)
+table(nearVar$nzv, naSUM)
+```
+
+```{r}
+cleanTraining <- training[,(!nearVar$nzv & naSUM < 19216)]
+```
+
+We then remove the first column of the dataset (ID) and other variables that are not measurements so they do not interfere with the algorithm.
+
+```{r}
+cleanTraining <- cleanTraining[, -c(1:6)]
+```
+
+The training set has now been reduced to only 53 variables. 
+
+We then split the data into a training (70%) and testing (30%) data set, which we will use for cross validation and to assess the out of sample error of the predictor. The data is split by the predictor variable ("classe").
+
+```{r}
+set.seed(3456)  
+inTrain <- createDataPartition(y= cleanTraining$classe, p=0.7, list=FALSE)
+myTraining <- cleanTraining[inTrain,]
+myTesting <- cleanTraining[-inTrain,]
+
+dim(myTraining); dim(myTesting)
+```
+
+## Model Selection and Prediction
+
+We build two different models, decision tree and random forest, on our training set and evaluate them on the test set. 
+
+### Decision Tree
+
+```{r}
+modFit_DT <- rpart(classe ~ ., data = myTraining, method="class")
+fancyRpartPlot(modFit_DT)
+```
+
+Run the model against the testing data and use a confusion matrix to test the results. 
+
+```{r}
+set.seed(5678)
+
+prediction_DT <- predict(modFit_DT, myTesting, type = "class")
+confusionMatrix(prediction_DT, myTesting$classe)
+```
+
+### Random Forest Model
+
+We then try prediction with the random forest model.
+
+```{r}
+set.seed(5678)
+modFit_RF <- randomForest(classe ~ ., data = myTraining, ntree = 1000)
+prediction_RF <- predict(modFit_RF, myTesting, type = "class")
+confusionMatrix(prediction_RF, myTesting$classe)
+```
+
+```{r, echo = FALSE}
+plot(modFit_RF)
+```
+
+The random forest model has an accuracy of 99.52% when applied to the testing data set and higher compared to the accuracy of the decision tree model, only 72.8%. 
+
+## Out of Sample Error Comparison
+
+```{r}
+dt_outofsample = (confusionMatrix(prediction_DT, myTesting$classe))$overall[1]
+rf_outofsample = (confusionMatrix(prediction_RF, myTesting$classe))$overall[1]
+```
+
+```{r}
+out.of.sample.errors = c(as.numeric(1-dt_outofsample),
+                         as.numeric(1-rf_outofsample))
+names(out.of.sample.errors) = c("DT","RF")
+out.of.sample.errors
+```
+The random forest model also has a lower out of sample error of only 0.48%. 
+
+## Final Test and Conclusion
+Since the Random Forest model had a higer accuracy and lower out of sample error rate compared to the decision tree, we will apply the Random Forest model on the original testing dataset from the website. The model accurately predicted all of the 20 test subjects.  
+
+```{r}
+prediction_RFfinal <- predict(modFit_RF, testing, type = "class")
+prediction_RFfinal
+```
+
+
+## References
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
