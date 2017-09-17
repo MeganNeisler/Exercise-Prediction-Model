@@ -1,4 +1,4 @@
-# Practical Machine Learning_Prediction Assignment
+#  Dumbell Biceps Curl Exercise Prediction Model
 
 The goal of this project is to predict the manner in which participants conducted an exercise, Unilateral Dumbell Biceps Curl, using data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. I used testing and training data sets provided from an exercise study (Velloso et al. 2013) to test and select a model. 
 
@@ -21,8 +21,8 @@ We are using data from a weight lifting excercises study in which participants w
 
 The testing and training data can be found at the following urls:
 
-Training Data: "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
-Testing Data: "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+* Training Data: "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+* Testing Data: "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 
 
 ## Model
